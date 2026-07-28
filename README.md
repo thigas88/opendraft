@@ -199,13 +199,15 @@ It is a research assistance and drafting tool, not an autonomous author.
 
 OpenDraft uses **19 specialized AI agents** that work like a research team:
 
-```
-📚 RESEARCH PHASE    → Finds relevant papers from CrossRef, OpenAlex, Semantic Scholar, arXiv
-🏗️ STRUCTURE PHASE   → Creates research outline with chapters
-✍️ WRITING PHASE     → Drafts each section with academic tone
-🔍 CITATION PHASE    → Verifies every source exists (CrossRef, arXiv)
-✨ POLISH PHASE      → Refines language and formatting
-📄 EXPORT PHASE      → Generates PDF, Word, or LaTeX
+```text
+🤔 IDEA EVALUATION → Gates research ideas using RS1-RS8 principles (Phase 0)
+📚 RESEARCH PHASE  → Finds relevant papers from CrossRef, OpenAlex, Semantic Scholar, arXiv (Phase 1-2)
+🏗️ STRUCTURE PHASE → Creates research outline with chapters (Phase 3)
+✍️ WRITING PHASE   → Drafts each section with academic tone (Phase 4)
+🎨 FIGURES PHASE   → Generates methodology diagrams and data plots using PaperBanana (Phase 5)
+📄 EXPORT PHASE    → Generates PDF, Word, or LaTeX (Phase 6)
+🔍 VERIFY PHASE    → Enhanced Citation Verification against source abstracts (Phase 7)
+📝 REVISION PHASE  → Extracts PDF annotations and applies reviewer feedback automatically (Phase 8)
 ```
 
 **Result:** A complete research draft in 10-20 minutes instead of weeks.
@@ -222,6 +224,12 @@ Every citation is verified against CrossRef, OpenAlex, Semantic Scholar, and arX
 - Literature reviews (20-40 pages)
 - Thesis drafts (30-80 pages)
 - Structured reports (10-100+ pages)
+
+### 🚀 NEW: End-to-End Paper Machine Features
+- **Idea Evaluation (Phase 0)**: Evaluate if a research idea is worth pursuing before generating the paper (`opendraft evaluate-idea`).
+- **Figure Generation**: Automatically generate methodology diagrams and statistical plots via PaperBanana.
+- **Enhanced Citation Verification**: Extract claims and verify them against source abstracts (Tier A/Tier B).
+- **Revision Automation**: Submit an annotated PDF from reviewers, and OpenDraft will extract the highlights/comments and implement the revisions automatically!
 
 ### 57+ Languages Supported
 English, Spanish, German, French, Chinese, Japanese, Korean, Arabic, Portuguese, Italian, Dutch, Polish, Russian, and 40+ more.
@@ -410,10 +418,21 @@ Output: `paper_digest.mp3` - a professional narration summarizing the key points
 
 ### 1. Clone & Install
 
+We recommend installing the package in editable mode so the `opendraft` CLI becomes available in your environment:
+
 ```bash
 git clone https://github.com/federicodeponte/opendraft.git
 cd opendraft
-pip install -r requirements.txt
+
+# Using uv (recommended for speed)
+uv venv
+source .venv/bin/activate
+uv pip install -e .
+
+# Or using standard pip
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
 ```
 
 ### 2. Configure

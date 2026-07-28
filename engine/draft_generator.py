@@ -50,6 +50,7 @@ from utils.agent_runner import setup_model
 # Phase imports
 from phases import (
     DraftContext,
+    run_idea_evaluation,
     run_research_phase,
     run_structure_phase,
     run_citation_management,
@@ -504,6 +505,7 @@ def generate_draft(
     student_id: Optional[str] = None,
     citation_style: str = "apa",
     resume_from: Optional[Path] = None,
+    skip_idea_evaluation: bool = False,
 ) -> Tuple[Path, Path]:
     """
     Generate a complete academic draft using specialized AI agents.
@@ -695,6 +697,45 @@ def generate_draft(
         # ====================================================================
         # Execute pipeline phases with inter-phase validation and checkpoints
         # ====================================================================
+
+        # PHASE 0: IDEA EVALUATION (Open Paper Machine — evaluate before producing)
+        if not skip_idea_evaluation and (not completed_phase or get_next_phase(completed_phase) == "idea_evaluation"):
+            if verbose:
+                print("\n🧠 Phase 0: Evaluating research idea (RS1-RS8)...")
+            run_phase_with_retry(run_idea_evaluation, ctx, "idea_evaluation")
+            save_checkpoint(ctx, "idea_evaluation", output_dir)
+            completed_phase = "idea_evaluation"
+
+            # Handle KILL/PARK verdicts
+            if ctx.idea_verdict == "KILL":
+                if verbose:
+                    print("\n🛑 Idea evaluation verdict: KILL")
+                    print("   The research idea did not pass the evaluation gate.")
+                    print(f"   Evaluation saved to: {output_dir / 'research-evaluations'}")
+                logger.warning(f"Pipeline stopped: Idea evaluation verdict is KILL")
+                raise ValueError(
+                    f"Idea evaluation gate: KILL verdict. "
+                    f"The research topic '{topic[:50]}...' did not pass the Phase 0 evaluation. "
+                    f"See research-evaluations/ for details and suggestions."
+                )
+            elif ctx.idea_verdict == "PARK":
+                if verbose:
+                    print("\n⏸️  Idea evaluation verdict: PARK")
+                    print("   The idea has potential but is not ready for full production.")
+                    print(f"   Evaluation saved to: {output_dir / 'research-evaluations'}")
+                logger.warning(f"Pipeline stopped: Idea evaluation verdict is PARK")
+                raise ValueError(
+                    f"Idea evaluation gate: PARK verdict. "
+                    f"The topic has potential but conditions are not right yet. "
+                    f"See research-evaluations/ for revisit conditions."
+                )
+            elif ctx.idea_verdict == "REFINE":
+                if verbose:
+                    print("\n🔄 Idea evaluation verdict: REFINE")
+                    print("   Proceeding with refinement suggestions noted.")
+                logger.info("Idea verdict REFINE — proceeding with noted suggestions")
+        elif skip_idea_evaluation and not completed_phase:
+            completed_phase = "idea_evaluation"  # Skip to next phase
 
         # RESEARCH PHASE (with pipeline-level retry)
         if not completed_phase or get_next_phase(completed_phase) == "research":

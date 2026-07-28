@@ -59,6 +59,9 @@ def run_compose_phase(ctx: DraftContext) -> None:
     _write_appendices(ctx)
     rate_limit_delay()
 
+    _generate_figures(ctx)
+    rate_limit_delay()
+
 
 # ---------------------------------------------------------------------------
 # Private helpers — each constructs the prompt, calls run_agent, returns output
@@ -242,10 +245,10 @@ Outline:
 1. **Section numbering:** Start with ## 2.2 Methodology
 2. **Subsections:** Use ### 2.2.1, ### 2.2.2, etc. (at least 2-3 subsections)
 3. **Word count:** {methodology_target} words minimum
-4. **Tables:** Include at least 1 methodology summary table
-   - **Maximum 300 characters per cell** - keep cells concise!
-   - **Maximum 5 columns** per table
-   - Put details in prose AFTER the table, not inside cells
+4. **Tables & Figures:** Include at least 1 methodology summary table, and 1 figure placeholder.
+   - For tables: Maximum 300 characters per cell, maximum 5 columns
+   - For figures: Use EXACTLY this format to request an AI-generated diagram:
+     `[FIGURE: diagram | Descriptive Caption Here | Detailed text description of what the diagram should show, its components, and flow]`
 5. **Build on Literature Review:** Reference gaps identified in section 2.1
 6. **Citations:** ONLY use citations from the CITATION DATABASE above with {{cite_XXX}} format
 
@@ -336,10 +339,10 @@ Research data:
 1. **Section numbering:** Start with ## 2.3 Analysis and Results
 2. **Subsections:** Use ### 2.3.1, ### 2.3.2, etc. (at least 3 subsections)
 3. **Word count:** {results_target} words minimum
-4. **Tables:** Include at least 2-3 data/results tables
-   - **Maximum 300 characters per cell** - keep cells concise!
-   - **Maximum 5 columns** per table
-   - Put details in prose AFTER the table, not inside cells
+4. **Tables & Figures:** Include at least 2-3 data tables, and 1 figure placeholder.
+   - For tables: Maximum 300 characters per cell, maximum 5 columns
+   - For figures: Use EXACTLY this format to request an AI-generated statistical plot:
+     `[FIGURE: plot | Descriptive Caption Here | JSON string with {"categories": [...], "values": [...]}]`
 5. **Synthesize Literature Findings:** Present results FROM CITED SOURCES, not from new research
 6. **Citations:** ONLY use citations from the CITATION DATABASE above with {{cite_XXX}} format
 
@@ -674,3 +677,96 @@ Supplementary references, tools, and resources for further reading.
         if ctx.tracker:
             ctx.tracker.mark_failed(f"Chapter 4 (Appendices) failed: {e}")
         raise
+
+def _generate_figures(ctx: DraftContext) -> None:
+    """Scan the drafted body for [FIGURE: type | caption | context] and generate them using PaperBanana."""
+    import re
+    import os
+    import json
+    import asyncio
+    import subprocess
+    from pathlib import Path
+    
+    logger.info("Scanning for figure placeholders...")
+    if ctx.verbose:
+        print("\n🎨 PHASE 3.1: FIGURE GENERATION")
+    
+    # Check if we should skip figure generation (no API keys, or explicit disable)
+    if not any(os.environ.get(k) for k in ["GOOGLE_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"]):
+        logger.warning("No API key for PaperBanana. Skipping figure generation.")
+        return
+
+    pattern = re.compile(r'\[FIGURE:\s*(diagram|plot)\s*\|\s*([^|]+)\s*\|\s*([^\]]+)\]')
+    
+    figures_dir = ctx.folders['exports'] / 'figures'
+    figures_dir.mkdir(exist_ok=True, parents=True)
+    
+    pb_script = Path(__file__).parent.parent / "scripts" / "paperbanana_direct.py"
+    if not pb_script.exists():
+        logger.warning("paperbanana_direct.py not found. Skipping figure generation.")
+        return
+
+    ctx.figures_generated = getattr(ctx, 'figures_generated', 0)
+
+    for attr in ['intro_output', 'lit_review_output', 'methodology_output', 'results_output', 'discussion_output', 'body_output', 'conclusion_output', 'appendix_output']:
+        content = getattr(ctx, attr, "")
+        if not content:
+            continue
+            
+        matches = list(pattern.finditer(content))
+        if not matches:
+            continue
+            
+        for i, match in enumerate(matches):
+            fig_type = match.group(1).strip()
+            caption = match.group(2).strip()
+            context = match.group(3).strip()
+            
+            fig_filename = f"fig_{attr}_{i}.png"
+            fig_path = figures_dir / fig_filename
+            
+            if ctx.verbose:
+                print(f"  Generating {fig_type}: {caption[:30]}...")
+            if ctx.tracker:
+                ctx.tracker.log_activity(f"🎨 Generating {fig_type}: {caption[:30]}...", event_type="info", phase="writing")
+            
+            try:
+                if fig_type == "diagram":
+                    cmd = [
+                        "python3", str(pb_script), "diagram",
+                        "--source-context", context,
+                        "--caption", caption,
+                        "--output-dir", str(figures_dir),
+                        "--filename", fig_filename,
+                        "--iterations", "2"
+                    ]
+                else: # plot
+                    cmd = [
+                        "python3", str(pb_script), "plot",
+                        "--data", context,
+                        "--caption", caption,
+                        "--output-dir", str(figures_dir),
+                        "--filename", fig_filename,
+                        "--iterations", "2"
+                    ]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+                if result.returncode == 0:
+                    try:
+                        out_json = json.loads(result.stdout.strip().split('\n')[-1])
+                        if out_json.get("status") == "ok":
+                            latex_fig = f"\\begin{{figure}}[htbp]\n\\centering\n\\includegraphics[width=\\linewidth]{{figures/{fig_filename}}}\n\\caption{{{caption}}}\n\\end{{figure}}"
+                            content = content.replace(match.group(0), latex_fig)
+                            ctx.figures_generated += 1
+                            logger.info(f"Generated figure: {fig_filename}")
+                    except Exception as e:
+                        logger.warning(f"Failed to parse figure engine output: {e}\n{result.stdout}")
+                else:
+                    logger.warning(f"Figure generation failed: {result.stderr}")
+            except Exception as e:
+                logger.warning(f"Figure generation error: {e}")
+                
+        setattr(ctx, attr, content)
+        
+    # Re-merge the body sections after figures are generated
+    _merge_body_sections(ctx)

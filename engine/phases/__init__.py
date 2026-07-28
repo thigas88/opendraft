@@ -5,6 +5,7 @@ ABOUTME: Each phase function takes a DraftContext and mutates it in-place
 """
 
 from .context import DraftContext
+from .idea_evaluation import run_idea_evaluation
 from .research import run_research_phase
 from .structure import run_structure_phase
 from .citations import run_citation_management
@@ -14,6 +15,7 @@ from .compile import run_compile_and_export, run_expose_export
 
 __all__ = [
     "DraftContext",
+    "run_idea_evaluation",
     "run_research_phase",
     "run_structure_phase",
     "run_citation_management",
@@ -22,3 +24,4 @@ __all__ = [
     "run_compile_and_export",
     "run_expose_export",
 ]
+

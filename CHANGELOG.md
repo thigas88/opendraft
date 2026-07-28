@@ -2,6 +2,17 @@
 
 All notable changes are documented in this file.
 
+## 1.8.0 - 2026-07-27
+
+### Added
+- **Open Paper Machine Integration**: Ported all core features from the Open Paper Machine project.
+- **Phase 0 (Idea Evaluation)**: Added `opendraft evaluate-idea` command to gatekeep research ideas using RS1-RS8 principles.
+- **Phase 5 (Figure Generation)**: Integrated PaperBanana API via `paperbanana_direct.py` to automatically generate methodology diagrams and data plots during the Compose phase.
+- **Phase 7 (Enhanced Verification)**: Added `opendraft verify-citations` to extract and verify parenthetical citations against Crossref abstracts.
+- **Phase 8 (Revision Automation)**: Expanded `opendraft revise` to accept annotated PDFs, automatically extracting reviewer comments/highlights and applying them to the draft.
+- **Skill Engines**: Added 16 new skill engines and 24 scientific skills modules in `skills/` and `scientific-skills/` directories.
+- **Dependencies**: Added `paperbanana`, `matplotlib`, `seaborn`, and `PyMuPDF` as optional dependencies for advanced features.
+
 ## 1.7.4 - 2026-07-22
 
 ### Added

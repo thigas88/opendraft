@@ -26,3 +26,15 @@ python-dotenv>=1.0.0        # Load .env files
 rich>=13.0.0                # Pretty terminal output (for scripts)
 psutil>=5.9.0               # System monitoring for health checks
 pydantic>=2.0.0             # LLM output validation
+
+# === Open Paper Machine - Figure Generation (optional) ===
+matplotlib>=3.7.0           # Fallback figure generation
+seaborn>=0.12.0             # Statistical visualization
+
+# === Open Paper Machine - PDF Annotation Extraction (optional) ===
+# PyMuPDF>=1.23.0           # PDF annotation extraction (install: pip install PyMuPDF)
+
+# === Open Paper Machine - Academic Search (optional) ===
+# paperbanana[google]       # AI figure generation (pip install paperbanana[google])
+# academic-search-mcp       # Academic search MCP server
+

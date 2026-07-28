@@ -1,0 +1,2 @@
+[console_scripts]
+opendraft = engine.opendraft.cli:main

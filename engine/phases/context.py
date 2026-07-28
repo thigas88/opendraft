@@ -95,3 +95,25 @@ class DraftContext:
     # Token tracking (optional)
     # ------------------------------------------------------------------
     token_tracker: Any = None  # TokenTracker
+
+    # ------------------------------------------------------------------
+    # Phase 0: Idea Evaluation outputs (Open Paper Machine)
+    # ------------------------------------------------------------------
+    idea_evaluation: Optional[Dict[str, Any]] = None  # Full evaluation result
+    idea_verdict: str = ""  # PURSUE, REFINE, PARK, or KILL
+    idea_nugget: str = ""  # One-sentence core insight (RS3)
+    idea_draft_abstract: str = ""  # 5-sentence draft abstract
+    idea_draft_conclusion: str = ""  # Draft conclusion (RS2 test)
+    idea_key_risks: List[str] = field(default_factory=list)  # Top 3 risks
+
+    # ------------------------------------------------------------------
+    # Figure generation outputs (Open Paper Machine)
+    # ------------------------------------------------------------------
+    figures_generated: List[str] = field(default_factory=list)  # Paths to generated figures
+
+    # ------------------------------------------------------------------
+    # Revision automation outputs (Open Paper Machine)
+    # ------------------------------------------------------------------
+    revision_round: int = 0  # Current revision round (R1, R2, ...)
+    reviewer_comments: Optional[str] = None  # Reviewer comments input
+

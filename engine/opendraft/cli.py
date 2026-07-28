@@ -866,7 +866,7 @@ def run_revise_command(argv):
         description="Revise an existing draft with AI assistance"
     )
     parser.add_argument("target", help="Path to draft folder or markdown file")
-    parser.add_argument("instructions", help="Revision instructions (e.g., 'make the introduction longer')")
+    parser.add_argument("instructions", help="Revision instructions OR path to an annotated PDF with reviewer comments")
     parser.add_argument("--model", "-m", default="gemini-3-flash-preview",
                         help="Gemini model to use (default: gemini-3-flash-preview)")
 
@@ -904,10 +904,32 @@ def run_revise_command(argv):
             else:
                 print(f"\n  {c.RED}✗{c.RESET} No draft found in {target_path}\n")
                 return 1
+        
+        # Handle PDF annotations (Phase 7C - Review Engine)
+        instructions_text = args.instructions
+        if args.instructions.lower().endswith('.pdf'):
+            pdf_path = Path(args.instructions)
+            if pdf_path.exists():
+                print(f"  {c.PURPLE}⣾{c.RESET} Extracting annotations from PDF...")
+                from scripts.extract_annotations import extract_annotations, annotations_to_markdown
+                try:
+                    annotations = extract_annotations(str(pdf_path))
+                    if not annotations:
+                        print(f"\n  {c.YELLOW}!{c.RESET} No annotations found in PDF. Make sure to use highlights or sticky notes.\n")
+                        return 1
+                    instructions_text = f"Review the following reviewer annotations extracted from the PDF and implement the requested changes:\n\n{annotations_to_markdown(annotations)}"
+                    print(f"  {c.GRAY}Extracted {len(annotations)} review points{c.RESET}")
+                except Exception as ex:
+                    print(f"\n  {c.RED}✗{c.RESET} Failed to extract annotations: {ex}\n")
+                    return 1
+            else:
+                print(f"\n  {c.RED}✗{c.RESET} PDF not found: {pdf_path}\n")
+                return 1
+
         print()
         print(f"  {c.PURPLE}⣾{c.RESET} Revising draft...")
 
-        result = revise_draft(target_path, args.instructions, model=args.model)
+        result = revise_draft(target_path, instructions_text, model=args.model)
 
         print()
         print(f"  {c.GREEN}{'─' * 40}{c.RESET}")
@@ -1046,6 +1068,140 @@ def run_data_command(argv):
         return 1
 
 
+def run_evaluate_idea_command(argv):
+    """Run standalone idea evaluation (Phase 0 only)."""
+    import argparse
+    c = Colors
+
+    parser = argparse.ArgumentParser(
+        prog="opendraft evaluate-idea",
+        description="Evaluate whether a research idea is worth pursuing (Phase 0 gate)"
+    )
+    parser.add_argument("topic", help="Research topic to evaluate")
+    parser.add_argument("--blurb", "-b", help="Additional context or focus")
+    parser.add_argument("--level", "-l",
+                        choices=["research_paper", "bachelor", "master", "phd"],
+                        default="research_paper",
+                        help="Academic level (default: research_paper)")
+    parser.add_argument("--output", "-o", type=Path,
+                        help="Output directory for evaluation results")
+
+    args = parser.parse_args(argv)
+
+    print()
+    print(f"  {c.BOLD}Idea Evaluation{c.RESET}")
+    print(f"  {c.GRAY}{'─' * 50}{c.RESET}")
+    print(f"  {c.GRAY}Topic:{c.RESET}  {args.topic}")
+    if args.blurb:
+        print(f"  {c.GRAY}Focus:{c.RESET}  {args.blurb[:60]}")
+    print(f"  {c.GRAY}Level:{c.RESET}  {args.level}")
+    print()
+    print(f"  {c.PURPLE}⣾{c.RESET} Evaluating research idea using RS1-RS8 principles...")
+    print()
+
+    # Ensure API key is set
+    if not has_api_key():
+        print(f"  {c.YELLOW}!{c.RESET} Run {c.BOLD}opendraft setup{c.RESET} first.\n")
+        return 1
+
+    if not os.getenv('GOOGLE_API_KEY'):
+        os.environ['GOOGLE_API_KEY'] = get_api_key()
+
+    try:
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        from utils.agent_runner import setup_model
+        from phases.idea_evaluation import run_idea_evaluation
+        from phases.context import DraftContext
+
+        model = setup_model()
+
+        output_dir = args.output or Path.cwd() / 'opendraft_evaluation'
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create minimal context for standalone evaluation
+        ctx = DraftContext(
+            topic=args.topic,
+            blurb=args.blurb,
+            academic_level=args.level,
+            model=model,
+            verbose=True,
+            skip_validation=True,
+            folders={
+                'root': output_dir,
+                'research': output_dir / 'research',
+            },
+            word_targets={},
+            language_name="English",
+            language_instruction="",
+        )
+
+        # Ensure research-evaluations dir exists
+        (output_dir / "research-evaluations").mkdir(parents=True, exist_ok=True)
+
+        # Run Phase 0 only
+        run_idea_evaluation(ctx)
+
+        # Print final result
+        verdict = ctx.idea_verdict
+        verdict_icon = {"PURSUE": "✅", "REFINE": "🔄", "PARK": "⏸️", "KILL": "🛑"}.get(verdict, "❓")
+
+        print()
+        print(f"  {c.GREEN}{'━' * 40}{c.RESET}")
+        print(f"  {verdict_icon} {c.BOLD}Verdict: {verdict}{c.RESET}")
+        print(f"  {c.GREEN}{'━' * 40}{c.RESET}")
+        print()
+
+        if ctx.idea_nugget:
+            print(f"  {c.GRAY}Nugget:{c.RESET}  {ctx.idea_nugget[:80]}")
+        print(f"  {c.GRAY}Files:{c.RESET}   {output_dir / 'research-evaluations'}")
+        print()
+
+        if verdict == "PURSUE":
+            print(f"  {c.GREEN}→{c.RESET} Ready to proceed! Run:")
+            print(f"    {c.CYAN}opendraft \"{args.topic}\" --skip-evaluation{c.RESET}")
+        elif verdict == "REFINE":
+            print(f"  {c.YELLOW}→{c.RESET} Consider the refinement suggestions above before proceeding.")
+        elif verdict == "PARK":
+            print(f"  {c.YELLOW}→{c.RESET} This idea has potential. Review the revisit conditions.")
+        elif verdict == "KILL":
+            print(f"  {c.RED}→{c.RESET} Consider the salvageable ideas or try a different angle.")
+
+        print()
+        return 0
+
+    except Exception as e:
+        print_friendly_error(e)
+        return 1
+
+def run_verify_citations_command(argv):
+    """Run verify-citations subcommand."""
+    import argparse
+    c = Colors
+
+    parser = argparse.ArgumentParser(
+        prog="opendraft verify-citations",
+        description="Verify citations against source abstracts"
+    )
+    parser.add_argument("draft", help="Path to markdown draft file")
+
+    args = parser.parse_args(argv)
+    draft_path = Path(args.draft)
+
+    # Ensure API key is set
+    if not has_api_key():
+        print(f"  {c.YELLOW}!{c.RESET} Run {c.BOLD}opendraft setup{c.RESET} first.\n")
+        return 1
+
+    if not os.getenv('GOOGLE_API_KEY'):
+        os.environ['GOOGLE_API_KEY'] = get_api_key()
+
+    try:
+        from opendraft.verify_citations import verify_citations_command
+        return verify_citations_command(draft_path)
+    except Exception as e:
+        print_friendly_error(e)
+        return 1
+
 def main():
     """Main CLI entry point."""
     import argparse
@@ -1061,6 +1217,10 @@ def main():
             return run_revise_command(sys.argv[2:])
         if cmd == 'data':
             return run_data_command(sys.argv[2:])
+        if cmd == 'evaluate-idea' or cmd == 'evaluate' or cmd == 'eval':
+            return run_evaluate_idea_command(sys.argv[2:])
+        if cmd == 'verify-citations':
+            return run_verify_citations_command(sys.argv[2:])
 
     parser = argparse.ArgumentParser(
         prog="opendraft",
@@ -1076,6 +1236,8 @@ def main():
   opendraft digest <file>      Generate 60-second audio digest
   opendraft revise <folder> "instructions"   Revise existing draft
   opendraft data <provider> <query>          Fetch research datasets
+  opendraft evaluate-idea "topic"            Evaluate if a research idea is worth pursuing
+  opendraft verify-citations <draft.md>      Verify citations against source abstracts
 
 {Colors.BOLD}Examples:{Colors.RESET}
   opendraft "Impact of AI on Education"
@@ -1083,6 +1245,8 @@ def main():
   opendraft tldr paper.pdf
   opendraft digest paper.pdf --voice josh
   opendraft "Neural Networks" --expose              Quick research overview
+  opendraft "Neural Networks" --skip-evaluation     Skip idea evaluation gate
+  opendraft evaluate-idea "Quantum ML for Drug Discovery"
   opendraft revise ./output "make the intro longer"
   opendraft data worldbank NY.GDP.MKTP.CD --countries USA;DEU
 
@@ -1173,6 +1337,12 @@ def main():
         "--resume",
         type=Path,
         help="Resume from checkpoint (path to checkpoint.json or output directory)"
+    )
+
+    parser.add_argument(
+        "--skip-evaluation",
+        action="store_true",
+        help="Skip Phase 0 idea evaluation gate (proceed directly to research)"
     )
 
     args = parser.parse_args()
@@ -1292,6 +1462,7 @@ def main():
             advisor=args.advisor,
             citation_style=args.style,
             resume_from=resume_from,
+            skip_idea_evaluation=args.skip_evaluation,
         )
 
         print()

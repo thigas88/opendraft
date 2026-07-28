@@ -14,7 +14,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 # Phases in order of execution
-PHASES = ["research", "structure", "citations", "compose", "validate", "compile"]
+PHASES = ["idea_evaluation", "research", "structure", "citations", "compose", "validate", "compile"]
 
 
 def save_checkpoint(ctx: 'DraftContext', phase: str, checkpoint_dir: Path) -> Path:
@@ -80,6 +80,13 @@ def save_checkpoint(ctx: 'DraftContext', phase: str, checkpoint_dir: Path) -> Pa
         # Note: citation_database is saved separately as bibliography.json
 
         # Compose phase outputs
+        # Phase 0: Idea Evaluation outputs
+        "idea_verdict": ctx.idea_verdict,
+        "idea_nugget": ctx.idea_nugget,
+        "idea_draft_abstract": ctx.idea_draft_abstract,
+        "idea_draft_conclusion": ctx.idea_draft_conclusion,
+        "idea_key_risks": ctx.idea_key_risks,
+
         "intro_output": ctx.intro_output,
         "lit_review_output": ctx.lit_review_output,
         "methodology_output": ctx.methodology_output,
@@ -153,6 +160,13 @@ def restore_context(ctx: 'DraftContext', checkpoint_data: Dict[str, Any]) -> Non
     # Restore folders as Path objects
     folders_data = checkpoint_data.get("folders", {})
     ctx.folders = {k: Path(v) for k, v in folders_data.items()}
+
+    # Restore Phase 0: Idea Evaluation outputs
+    ctx.idea_verdict = checkpoint_data.get("idea_verdict", "")
+    ctx.idea_nugget = checkpoint_data.get("idea_nugget", "")
+    ctx.idea_draft_abstract = checkpoint_data.get("idea_draft_abstract", "")
+    ctx.idea_draft_conclusion = checkpoint_data.get("idea_draft_conclusion", "")
+    ctx.idea_key_risks = checkpoint_data.get("idea_key_risks", [])
 
     # Restore research phase outputs
     ctx.scout_output = checkpoint_data.get("scout_output", "")
