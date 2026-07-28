@@ -56,3 +56,6 @@ section_comparison/
 # Generated JSON artifacts
 quality_test_results.json
 token_usage.json
+opendraft_ui.db
+opendraft_output
+opendraft_evaluation

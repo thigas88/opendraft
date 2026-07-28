@@ -17,9 +17,10 @@ try:
 
     # Get directory where config.py is located
     config_dir = Path(__file__).parent
+    project_root = config_dir.parent
 
     # Load .env first (defaults)
-    env_path = config_dir / '.env'
+    env_path = project_root / '.env'
     if env_path.exists():
         load_dotenv(env_path)
 
@@ -47,7 +48,7 @@ class ModelConfig:
         default_factory=lambda: (
             os.getenv('OPENAI_MODEL', 'gpt-4.1-nano')
             if os.getenv('AI_PROVIDER') == 'openai'
-            else os.getenv('GEMINI_MODEL', 'gemini-3.1-pro-preview')
+            else os.getenv('GEMINI_MODEL', 'gemini-3.6-flash')
         )
     )
     temperature: float = 0.7
@@ -57,13 +58,12 @@ class ModelConfig:
     def __post_init__(self):
         """Validate model configuration."""
         valid_gemini_models = [
-            'gemini-3.1-pro-preview',    # Pro model for complex tasks
-            'gemini-3-flash-preview',  # Primary flash model (supports JSON output)
-            'gemini-2.5-pro',          # Legacy support
+            'gemini-3.6-flash',
+            'gemini-3.5-flash',    # Pro model for complex tasks
+            'gemini-3.0-flash',   
             'gemini-2.5-flash',        # Legacy support
-            'gemini-2.0-flash-exp',    # Legacy support
-            'gemini-1.5-flash',
-            'gemini-1.5-pro',
+            'gemma-4-31b-it',   # Google's new open model
+            'gemma-4-26b-a4b-it'
         ]
 
         valid_openai_models = [
@@ -87,7 +87,7 @@ class ModelConfig:
 class ValidationConfig:
     """Configuration for validation agents (Skeptic, Verifier, Referee, FactCheck)."""
     use_pro_model: bool = field(default_factory=lambda: os.getenv('USE_PRO_FOR_VALIDATION', 'false').lower() == 'true')
-    pro_model_name: str = 'gemini-3.1-pro-preview'
+    pro_model_name: str = 'gemini-3.5-flash'
     validate_per_section: bool = True  # Always validate each section independently
     enable_factcheck: bool = field(
         default_factory=lambda: os.getenv('ENABLE_FACTCHECK', 'true').lower() == 'true'
