@@ -342,7 +342,7 @@ Research data:
 4. **Tables & Figures:** Include at least 2-3 data tables, and 1 figure placeholder.
    - For tables: Maximum 300 characters per cell, maximum 5 columns
    - For figures: Use EXACTLY this format to request an AI-generated statistical plot:
-     `[FIGURE: plot | Descriptive Caption Here | JSON string with {"categories": [...], "values": [...]}]`
+     `[FIGURE: plot | Descriptive Caption Here | JSON string with {{"categories": [...], "values": [...]}}]`
 5. **Synthesize Literature Findings:** Present results FROM CITED SOURCES, not from new research
 6. **Citations:** ONLY use citations from the CITATION DATABASE above with {{cite_XXX}} format
 

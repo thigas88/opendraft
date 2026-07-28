@@ -484,23 +484,36 @@ generated_by: "OpenDraft AI - https://github.com/federicodeponte/opendraft"
     if ctx.verbose:
         print("📄 Exporting PDF (professional formatting)...")
 
-    pdf_success = export_pdf(md_file=final_md_path, output_pdf=pdf_path, engine='pandoc')
+    try:
+        pdf_success = export_pdf(md_file=final_md_path, output_pdf=pdf_path, engine='pandoc')
+    except Exception as e:
+        logger.warning(f"PDF export raised an exception: {e}")
+        pdf_success = False
 
-    if not pdf_success:
-        raise RuntimeError("PDF export failed - Professional formatting required!")
-    if not pdf_path.exists():
-        raise RuntimeError(f"PDF export failed - file not created: {pdf_path}")
+    if not pdf_success or not pdf_path.exists():
+        logger.warning("PDF export failed - falling back to DOCX/MD only")
+        pdf_path = None
+    else:
+        if ctx.tracker:
+            ctx.tracker.log_activity("\u2705 PDF document ready", event_type="found", phase="exporting")
 
     if ctx.tracker:
-        ctx.tracker.log_activity("\u2705 PDF document ready", event_type="found", phase="exporting")
         ctx.tracker.log_activity("📝 Creating Word document...", event_type="info", phase="exporting")
 
     # DOCX export
     docx_path = ctx.folders['exports'] / f"{base_filename}.docx"
-    docx_success = export_docx(md_file=final_md_path, output_docx=docx_path)
+    try:
+        docx_success = export_docx(md_file=final_md_path, output_docx=docx_path)
+    except Exception as e:
+        logger.warning(f"DOCX export raised an exception: {e}")
+        docx_success = False
 
     if not docx_success or not docx_path.exists():
-        raise RuntimeError(f"DOCX export failed - file not created: {docx_path}")
+        logger.warning(f"DOCX export failed - file not created: {docx_path}")
+        docx_path = None
+    else:
+        if ctx.tracker:
+            ctx.tracker.log_activity("\u2705 Word document ready", event_type="found", phase="exporting")
 
     if ctx.tracker:
         ctx.tracker.log_activity("\u2705 Word document ready", event_type="found", phase="exporting")
@@ -516,8 +529,10 @@ generated_by: "OpenDraft AI - https://github.com/federicodeponte/opendraft"
     zip_path = ctx.folders['exports'] / f"{base_filename}.zip"
     try:
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-            zf.write(pdf_path, pdf_path.name)
-            zf.write(docx_path, docx_path.name)
+            if pdf_path and pdf_path.exists():
+                zf.write(pdf_path, pdf_path.name)
+            if docx_path and docx_path.exists():
+                zf.write(docx_path, docx_path.name)
             zf.write(final_md_path, final_md_path.name)
             if tex_path and tex_path.exists():
                 zf.write(tex_path, tex_path.name)
@@ -535,7 +550,7 @@ generated_by: "OpenDraft AI - https://github.com/federicodeponte/opendraft"
         print(f"\u2705 Exported DOCX: {docx_path}")
         print(f"📂 Output folder: {ctx.folders['root']}")
 
-    return pdf_path, docx_path
+    return pdf_path or final_md_path, docx_path or final_md_path
 
 
 # ---------------------------------------------------------------------------
